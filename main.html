@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Realistic Individual Flag Cats</title>
+    <style>
+        * { margin: 0; padding: 0; }
+        body { overflow: hidden; background: #222; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        img.onload = init;
+        img.src = 'cat.jpg';
+
+        const tileSize = 80;
+        let textures = []; // Pre-rendered full-image tiles
+
+        function init() {
+            // Pre-scale full cat to each tile texture
+            for (let i = 0; i < 25; i++) { // Variety pool
+                const tex = document.createElement('canvas');
+                tex.width = tileSize;
+                tex.height = tileSize * 1.3; // Extra height for wave
+                const tctx = tex.getContext('2d');
+                tctx.drawImage(img, 0, 0, tileSize, tileSize);
+                textures.push(tex);
+            }
+            resize();
+            window.addEventListener('resize', resize);
+            animate();
+        }
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let tx = 0; tx < canvas.width + tileSize; tx += tileSize) {
+                for (let ty = 0; ty < canvas.height + tileSize; ty += tileSize) {
+                    const tex = textures[Math.floor(Math.random() * textures.length)];
+                    const w = tileSize, h = tex.height;
+                    const tileX = tx, tileY = ty;
+
+                    // Unique flag timing per tile
+                    const now = Date.now() * 0.001 + (tx * 0.01 + ty * 0.005);
+                    const wavelength = w / 8;
+                    const amplitude = 12;
+
+                    // Create temp canvas for wave distortion
+                    const temp = document.createElement('canvas');
+                    temp.width = w;
+                    temp.height = h;
+                    const tctx = temp.getContext('2d');
+                    tctx.drawImage(tex, 0, 0);
+
+                    const idata = tctx.getImageData(0, 0, w, h);
+                    const data = idata.data;
+                    const origData = tctx.getImageData(0, 0, w, h).data;
+
+                    for (let y = 0; y < h; y++) {
+                        let lastO = 0;
+                        for (let x = 0; x < w; x++) {
+                            const px = (y * w + x) * 4;
+                            const pct = x / w;
+                            const offset = Math.sin(x / wavelength - now) * amplitude * pct;
+                            const y2 = Math.floor(y + offset);
+                            const opx = (Math.max(0, Math.min(h - 1, y2)) * w + x) * 4;
+                            const shade = (offset - lastO) * 60;
+                            data[px] = Math.min(255, origData[opx] + shade);
+                            data[px + 1] = Math.min(255, origData[opx + 1] + shade);
+                            data[px + 2] = Math.min(255, origData[opx + 2] + shade);
+                            data[px + 3] = origData[opx + 3];
+                            lastO = offset;
+                        }
+                    }
+                    tctx.putImageData(idata, 0, 0);
+
+                    ctx.globalAlpha = 0.9;
+                    ctx.drawImage(temp, tileX, tileY);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+    </script>
+</body>
+</html>
